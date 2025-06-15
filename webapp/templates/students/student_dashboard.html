@@ -776,12 +776,24 @@
                 </div>
 
                 <div class="custom-card">
-                    <div class="custom-card-header">Quick Links</div>
+                    <div class="custom-card-header">Contact Lecturer</div>
                     <div class="custom-card-content">
                         <ul class="space-y-3">
-                            <li><a href="#" class="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center transition-colors duration-200" onclick="navigateToSection('schedule')"><i class="fas fa-calendar-alt w-5 h-5 mr-2 flex-shrink-0"></i> View Class Schedule</a></li>
-                            <li><a href="#" class="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center transition-colors duration-200"><i class="fas fa-envelope w-5 h-5 mr-2 flex-shrink-0"></i> Contact Lecturer</a></li>
-                         </ul>
+                            {% if lecturer_info %}
+                                {% for item in lecturer_info %}
+                                    <li>
+                                        <span class="font-semibold">{{ item.course_code }} - {{ item.course_name }}</span><br>
+                                        <span>
+                                            <i class="fas fa-user mr-1"></i>
+                                            {{ item.lecturer_name }}
+                                            (<a href="mailto:{{ item.lecturer_email }}" class="text-indigo-600 hover:underline">{{ item.lecturer_email }}</a>)
+                                        </span>
+                                    </li>
+                                {% endfor %}
+                            {% else %}
+                                <li>No lecturers found for your enrolled modules.</li>
+                            {% endif %}
+                        </ul>
                     </div>
                 </div>
             </div>

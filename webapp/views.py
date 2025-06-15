@@ -12,8 +12,9 @@ from django.utils import timezone
 from django.core.files.base import ContentFile
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-
-
+from datetime import timedelta
+from datetime import datetime, time
+from django.utils import timezone
 from .models import User, Student, Lecturer, Course, Enrollment, ClassSession, Attendance
 from .forms import (
     CustomUserCreationForm, StudentForm, LecturerForm, CourseForm,
@@ -229,56 +230,40 @@ def lecturer_dashboard(request):
 
     # --- Upcoming Session Calculation ---
     upcoming_session = None
-    now = timezone.localtime(timezone.now())  # Get the current local datetime
-    today_date = now.date()                    # Extract today's date
-    current_day_of_week_int = today_date.weekday()  
-    current_time = now.time()                 # Get the current time
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    current_time = now.time()
+    current_weekday = today.weekday()  # Monday=0
 
-    # Mapping your model's day_of_week strings to Python's weekday() integers
     day_name_to_int = {
         'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
         'Friday': 4, 'Saturday': 5, 'Sunday': 6
     }
-    
+
     potential_upcoming_sessions = []
 
     for session in lecturer_sessions_qs:
-        session_day_int = day_name_to_int.get(session.day_of_week)
-        
-        if session_day_int is not None:
-            days_diff = session_day_int - current_day_of_week_int
-            
-            # Calculate days_ahead to the next occurrence of this session's day
-            if days_diff < 0:
-                # If the session's day has already passed this week (e.g., it's Thursday, session was Monday),
-                # schedule for next week.
-                days_ahead = days_diff + 7
-            elif days_diff == 0:
-                # If it's today, check if the session time has already passed.
-                if session.start_time <= current_time:
-                    # If time has passed or it's the current session, schedule for next week.
-                    days_ahead = 7
-                else:
-                    # Session is today and still in the future.
-                    days_ahead = 0
-            else:
-                # Session is on a future day this week.
-                days_ahead = days_diff
-            
-            # Calculate the actual concrete date for this upcoming session.
-            concrete_session_date = today_date + timedelta(days=days_ahead)
+        session_weekday = day_name_to_int[session.day_of_week]
+        days_ahead = (session_weekday - current_weekday) % 7
+        session_date = today + timedelta(days=days_ahead)
+        session_datetime = datetime.combine(session_date, session.start_time)
 
-            potential_upcoming_sessions.append({
-                'id': session.pk,
-                'course': {
-                    'subjectName': session.course.course_name,
-                    'subjectCode': session.course.course_code,
-                },
-                'date': concrete_session_date,
-                'time': session.start_time,
-                'location': session.room,
-                'day_of_week': session.day_of_week, # Include for full display if needed
-            })
+        # If it's today and the session has already started, schedule for next week
+        if days_ahead == 0 and session.start_time <= current_time:
+            session_date = today + timedelta(days=7)
+            session_datetime = datetime.combine(session_date, session.start_time)
+
+        potential_upcoming_sessions.append({
+            'id': session.pk,
+            'course': {
+                'subjectName': session.course.course_name,
+                'subjectCode': session.course.course_code,
+            },
+            'date': session_date,
+            'time': session.start_time,
+            'location': session.room,
+            'day_of_week': session.day_of_week, # Include for full display if needed
+        })
     
     # Sort all potential sessions by concrete date and then by time to find the very next one.
     if potential_upcoming_sessions:
@@ -802,3 +787,22 @@ def edit_class_session(request, pk):
 
     # 
     return render(request, 'academics/class_session_form.html', {'form': form, 'class_session': class_session})
+
+@login_required
+def contact_lecturers(request):
+    student = request.user.student_profile  # Get the Student profile for the logged-in user
+    # Get all enrollments for this student
+    enrollments = student.enrollments.select_related('course__lecturer__user')
+    # Build a list of lecturer info for each enrolled course
+    lecturer_info = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        lecturer = course.lecturer
+        if lecturer:
+            lecturer_info.append({
+                'course_code': course.course_code,
+                'course_name': course.course_name,
+                'lecturer_name': f"{lecturer.user.first_name} {lecturer.user.last_name}",
+                'lecturer_email': lecturer.user.email,
+            })
+    return render(request, 'students/contact_lecturers.html', {'lecturer_info': lecturer_info})

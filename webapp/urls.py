@@ -1,4 +1,3 @@
-
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
@@ -7,6 +6,12 @@ urlpatterns = [
     # --- Authentication URLs ---
     path('', views.custom_login_view, name='login'),
     path('logout/', views.custom_logout_view, name='logout'),
+
+    # --- Password Reset URLs ---
+    path('password-reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
+    path('password-reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
     # --- Dashboard URLs ---
     path('dashboard/student/', views.student_dashboard, name='student_dashboard'),
@@ -31,5 +36,6 @@ urlpatterns = [
     path('api/update-student-profile/', views.update_student_profile_api, name='update_student_profile_api'),
     path('api/mark-attendance/', views.mark_attendance_api, name='mark_attendance_api'),
 
-     
+    # --- Contact URLs ---
+    path('contact-lecturers/', views.contact_lecturers, name='contact_lecturers'),
 ]
